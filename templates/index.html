@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0A0E16"/>
+<title>Ledger — Personal Finance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{canvas:'#0A0E16',surface:'#12161F',surface2:'#1B212C',border:'#232938',primary:'#C9A567',income:'#2DD4BF',expense:'#FB7185',muted:'#7C8696'},fontFamily:{display:['"Outfit"','sans-serif'],sans:['"Inter"','sans-serif']},boxShadow:{fab:'0 8px 24px -4px rgba(201,165,103,0.35)'}}}};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="bg-canvas text-slate-200 font-sans antialiased min-h-screen pb-28 md:pb-12">
+
+<!-- Top Bar -->
+<header class="sticky top-0 z-30 backdrop-blur-md bg-canvas/85 border-b border-border">
+  <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-display font-bold text-sm">L</div>
+      <div>
+        <h1 class="font-display text-lg md:text-xl font-semibold tracking-tight text-white leading-none">Ledger</h1>
+        <p class="text-[11px] text-muted mt-0.5 hidden sm:block">Personal finance, at a glance</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <select id="monthFilter" class="bg-surface2 border border-border text-white text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
+        <option value="">All Time</option>
+      </select>
+      <div id="todayDate" class="text-xs text-muted font-medium tabular-nums hidden md:block"></div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 md:px-8 py-5 md:py-7 space-y-5">
+
+  <!-- Summary Cards -->
+  <section class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+    <div class="bg-surface border border-border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-[11px] font-semibold text-muted uppercase tracking-wider">Total Income</span>
+        <span class="w-8 h-8 rounded-full bg-income/10 text-income flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </span>
+      </div>
+      <p id="totalIncome" class="font-display text-2xl md:text-[28px] font-semibold text-white tabular-nums">Rs 0.00</p>
+      <p id="filterLabelIncome" class="text-[11px] text-muted mt-1">All time</p>
+    </div>
+    <div class="bg-surface border border-border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-[11px] font-semibold text-muted uppercase tracking-wider">Total Expense</span>
+        <span class="w-8 h-8 rounded-full bg-expense/10 text-expense flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        </span>
+      </div>
+      <p id="totalExpense" class="font-display text-2xl md:text-[28px] font-semibold text-white tabular-nums">Rs 0.00</p>
+      <p id="filterLabelExpense" class="text-[11px] text-muted mt-1">All time</p>
+    </div>
+    <div class="bg-surface border border-border rounded-2xl p-5 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="text-[11px] font-semibold text-muted uppercase tracking-wider">Current Surplus</span>
+        <p id="totalSurplus" class="font-display text-2xl md:text-[28px] font-semibold mt-2 tabular-nums truncate">Rs 0.00</p>
+        <p id="surplusNote" class="text-[11px] text-muted mt-1">—</p>
+      </div>
+      <div class="relative w-16 h-16 shrink-0">
+        <div id="surplusRing" class="w-16 h-16 rounded-full transition-all duration-500"></div>
+        <div class="absolute inset-[6px] rounded-full bg-surface flex items-center justify-center">
+          <span id="surplusPct" class="text-xs font-display font-semibold tabular-nums">0%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bill Reminders -->
+  <section class="bg-surface border border-border rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+      <div>
+        <h2 class="font-display text-sm font-semibold text-white">Bill Reminders</h2>
+        <p class="text-[11px] text-muted mt-0.5">Monthly recurring bills — current month status</p>
+      </div>
+      <button id="openReminderBtn" class="inline-flex items-center gap-1.5 text-xs font-semibold border border-primary/40 text-primary px-3 py-2 rounded-xl hover:bg-primary/10 transition">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add Bill
+      </button>
+    </div>
+    <div id="remindersBody" class="px-5 py-3 flex flex-wrap gap-2.5">
+      <p id="remindersEmpty" class="text-sm text-muted py-4 w-full text-center">No reminders yet — add recurring bills like Electricity, Gas, Rent.</p>
+    </div>
+  </section>
+
+  <!-- Charts Row -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+    <div class="bg-surface border border-border rounded-2xl p-5">
+      <h2 class="font-display text-sm font-semibold text-white mb-1">Income vs Expense</h2>
+      <p id="chartLabel1" class="text-[11px] text-muted mb-4">All recorded transactions</p>
+      <div class="relative h-52 md:h-56"><canvas id="incomeExpenseChart"></canvas></div>
+    </div>
+    <div class="bg-surface border border-border rounded-2xl p-5">
+      <h2 class="font-display text-sm font-semibold text-white mb-1">Spending by Category</h2>
+      <p id="chartLabel2" class="text-[11px] text-muted mb-4">Expenses grouped by category</p>
+      <div class="relative h-52 md:h-56">
+        <canvas id="categoryChart"></canvas>
+        <p id="categoryEmpty" class="hidden absolute inset-0 flex items-center justify-center text-center text-sm text-muted px-6">No expenses yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Monthly Comparison Chart -->
+  <section class="bg-surface border border-border rounded-2xl p-5">
+    <h2 class="font-display text-sm font-semibold text-white mb-1">Monthly Comparison</h2>
+    <p class="text-[11px] text-muted mb-4">Last 6 months — Income vs Expense</p>
+    <div class="relative h-56 md:h-64"><canvas id="comparisonChart"></canvas></div>
+  </section>
+
+  <!-- Transactions Table -->
+  <section class="bg-surface border border-border rounded-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+      <div>
+        <h2 class="font-display text-sm font-semibold text-white">Recent Transactions</h2>
+        <p id="txCount" class="text-[11px] text-muted mt-0.5">0 transactions</p>
+      </div>
+      <button id="openAddBtn" class="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-canvas px-3.5 py-2.5 rounded-xl hover:opacity-90 active:scale-95 transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add Transaction
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-muted text-[11px] uppercase tracking-wider border-b border-border">
+            <th class="px-5 py-3 font-semibold whitespace-nowrap">Date</th>
+            <th class="px-5 py-3 font-semibold whitespace-nowrap">Category</th>
+            <th class="px-5 py-3 font-semibold whitespace-nowrap hidden sm:table-cell">Note</th>
+            <th class="px-5 py-3 font-semibold whitespace-nowrap text-right">Amount</th>
+            <th class="px-5 py-3 font-semibold whitespace-nowrap text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="transactionsBody" class="divide-y divide-border"></tbody>
+      </table>
+    </div>
+    <p id="emptyState" class="hidden text-center text-sm text-muted py-14 px-6">No transactions yet.</p>
+  </section>
+</main>
+
+<!-- Mobile FAB -->
+<button id="fabAddBtn" class="md:hidden fixed bottom-6 right-5 w-14 h-14 rounded-full bg-primary text-canvas shadow-fab flex items-center justify-center z-40 active:scale-90 transition-transform">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- Transaction Modal -->
+<div id="modalOverlay" class="hidden fixed inset-0 bg-black/60 z-50 items-end md:items-center justify-center">
+  <div id="modalSheet" class="bg-surface w-full md:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl md:rounded-2xl border border-border p-5 md:p-6 translate-y-full md:translate-y-0 transition-transform duration-300 ease-out">
+    <div class="w-10 h-1 bg-border rounded-full mx-auto mb-4 md:hidden"></div>
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="modalTitle" class="font-display text-lg font-semibold text-white">Add Transaction</h3>
+      <button id="closeModalBtn" class="w-8 h-8 rounded-full text-muted hover:text-white hover:bg-surface2 flex items-center justify-center text-xl">&times;</button>
+    </div>
+    <form id="transactionForm" class="space-y-4">
+      <input type="hidden" id="transactionId"/>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" data-type="Income" class="type-btn py-2.5 rounded-xl text-sm font-semibold border border-border bg-surface2 text-muted transition-colors">Income</button>
+        <button type="button" data-type="Expense" class="type-btn py-2.5 rounded-xl text-sm font-semibold border border-border bg-surface2 text-muted transition-colors">Expense</button>
+      </div>
+      <div>
+        <label class="text-xs text-muted font-medium">Amount</label>
+        <input type="number" id="amountInput" step="0.01" min="0.01" required placeholder="0.00" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+      </div>
+      <div>
+        <label class="text-xs text-muted font-medium">Category</label>
+        <input list="categoryList" id="categoryInput" required placeholder="e.g. Food, Salary, Electricity" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+        <datalist id="categoryList">
+          <option value="Salary"></option><option value="Food"></option>
+          <option value="Rent"></option><option value="Electricity"></option>
+          <option value="Gas"></option><option value="Transport"></option>
+          <option value="Utilities"></option><option value="Shopping"></option>
+          <option value="Entertainment"></option><option value="Health"></option>
+          <option value="Education"></option><option value="Other"></option>
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-muted font-medium">Date</label>
+        <input type="date" id="dateInput" required class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+      </div>
+      <div>
+        <label class="text-xs text-muted font-medium">Note (optional)</label>
+        <textarea id="noteInput" rows="2" placeholder="Add a short note…" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"></textarea>
+      </div>
+      <p id="formError" class="hidden text-xs text-expense bg-expense/10 border border-expense/30 rounded-lg px-3 py-2"></p>
+      <div class="flex gap-3 pt-1">
+        <button type="button" id="deleteBtn" class="hidden flex-1 py-2.5 rounded-xl text-sm font-semibold border border-expense/40 text-expense hover:bg-expense/10 transition">Delete</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-primary text-canvas hover:opacity-90 active:scale-[0.98] transition">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Reminder Modal -->
+<div id="reminderOverlay" class="hidden fixed inset-0 bg-black/60 z-50 items-end md:items-center justify-center">
+  <div id="reminderSheet" class="bg-surface w-full md:max-w-md rounded-t-3xl md:rounded-2xl border border-border p-5 md:p-6 translate-y-full md:translate-y-0 transition-transform duration-300 ease-out">
+    <div class="w-10 h-1 bg-border rounded-full mx-auto mb-4 md:hidden"></div>
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-display text-lg font-semibold text-white">Add Bill Reminder</h3>
+      <button id="closeReminderBtn" class="w-8 h-8 rounded-full text-muted hover:text-white hover:bg-surface2 flex items-center justify-center text-xl">&times;</button>
+    </div>
+    <form id="reminderForm" class="space-y-4">
+      <div>
+        <label class="text-xs text-muted font-medium">Bill Name</label>
+        <input type="text" id="remNameInput" required placeholder="e.g. Electricity Bill" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+      </div>
+      <div>
+        <label class="text-xs text-muted font-medium">Category (must match transaction category)</label>
+        <input list="remCategoryList" id="remCategoryInput" required placeholder="e.g. Electricity" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+        <datalist id="remCategoryList">
+          <option value="Electricity"></option><option value="Gas"></option>
+          <option value="Rent"></option><option value="Internet"></option>
+          <option value="Water"></option><option value="Transport"></option>
+        </datalist>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-muted font-medium">Due Day (1–31)</label>
+          <input type="number" id="remDayInput" min="1" max="31" required placeholder="e.g. 5" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+        </div>
+        <div>
+          <label class="text-xs text-muted font-medium">Expected Amount (optional)</label>
+          <input type="number" id="remAmountInput" step="0.01" min="0" placeholder="0.00" class="mt-1.5 w-full bg-surface2 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50"/>
+        </div>
+      </div>
+      <p id="reminderError" class="hidden text-xs text-expense bg-expense/10 border border-expense/30 rounded-lg px-3 py-2"></p>
+      <button type="submit" class="w-full py-2.5 rounded-xl text-sm font-semibold bg-primary text-canvas hover:opacity-90 transition">Save Reminder</button>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

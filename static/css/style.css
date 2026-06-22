@@ -1,0 +1,46 @@
+/* Small touches Tailwind's CDN utilities don't cover directly. */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Thin, dark scrollbars for the transactions table and modal sheet */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #232938;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2C3445;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #232938 transparent;
+}
+
+/* Modal overlay: toggled between hidden / flex from app.js */
+#modalOverlay.flex {
+  display: flex;
+}
+
+/* Remove the native up/down spinner on number inputs for a cleaner look */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Native-feeling date input icon on dark backgrounds */
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
