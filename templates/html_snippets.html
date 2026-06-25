@@ -1,0 +1,192 @@
+<!--
+  FinAuto – HTML Snippets
+  Paste each section into the correct place in your existing index.html
+  ─────────────────────────────────────────────────────────────────────────────
+-->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SNIPPET 1 – Add Car Form  (paste inside your Inventory / Cars section)
+     ══════════════════════════════════════════════════════════════════════════ -->
+<form id="addCarForm" class="card form-card">
+  <h3>Add New Car</h3>
+  <div class="form-grid">
+    <input name="chassis_number" placeholder="Chassis #" required />
+    <input name="make"           placeholder="Make (e.g. Toyota)" required />
+    <input name="model"          placeholder="Model (e.g. Corolla)" required />
+    <input name="year"           placeholder="Year" type="number" min="1990" max="2030" />
+    <input name="purchase_price" placeholder="Purchase Price (PKR)" type="number" min="0" />
+  </div>
+  <button type="submit" class="btn btn-primary">＋ Add Car</button>
+</form>
+
+<!-- Cars table -->
+<div class="card">
+  <h3>Inventory</h3>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Chassis #</th><th>Vehicle</th><th>Purchase Price</th>
+          <th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="carsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SNIPPET 2 – Sell Modal  (paste once near </body>)
+     Called via: openSellModal("CHASSIS")  /  closeSellModal()
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div id="sellModal" class="modal-overlay" onclick="if(event.target===this)closeSellModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🤝 Sell Car — <span class="modal-chassis"></span></h3>
+      <button class="modal-close" onclick="closeSellModal()">✕</button>
+    </div>
+
+    <form id="sellModalForm">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input name="customer_name" placeholder="e.g. Ali Ahmed" required />
+      </div>
+
+      <div class="form-group">
+        <label>Customer Phone *</label>
+        <input name="customer_phone" placeholder="+92 300 1234567" required />
+      </div>
+
+      <div class="form-group">
+        <label>Sale Price (PKR)</label>
+        <input name="sale_price" type="number" min="0"
+               placeholder="Leave blank to use listed price" />
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeSellModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SNIPPET 3 – Installments Side Panel  (paste once near </body>)
+     Called via: openInstallmentsPanel("CHASSIS")
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div id="installmentsPanel" class="side-panel">
+  <div class="panel-header">
+    <h3>💳 Installments — <span class="panel-chassis-number"></span></h3>
+    <button class="modal-close" onclick="closeInstallmentsPanel()">✕</button>
+  </div>
+
+  <!-- Summary KPIs -->
+  <div id="installmentSummary" class="kpi-mini-row"></div>
+
+  <!-- Installments list -->
+  <div id="installmentsList" class="installments-list"></div>
+
+  <!-- Add installment form -->
+  <form id="addInstallmentForm" class="add-inst-form">
+    <h4>Add Installment</h4>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label>Amount (PKR)</label>
+        <input name="inst_amount" type="number" min="1" placeholder="50000" required />
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input name="inst_due_date" type="date" required />
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">＋ Add Installment</button>
+  </form>
+</div>
+<!-- Overlay to close panel on outside click -->
+<div class="side-panel-overlay" onclick="closeInstallmentsPanel()"></div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SNIPPET 4 – Business View section
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="businessView" class="section">
+  <div class="section-header">
+    <h2>📊 Business View</h2>
+
+    <!-- PDF Export -->
+    <div class="export-row">
+      <label>Month:</label>
+      <input id="pdfMonthPicker" type="month" />
+      <button class="btn btn-secondary" onclick="exportPDF()">⬇ Export PDF</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <span>Total Cars</span>
+      <strong id="kpiTotalCars">—</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Available</span>
+      <strong id="kpiAvailable">—</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Sold</span>
+      <strong id="kpiSold">—</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Total Revenue</span>
+      <strong id="kpiRevenue">—</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Total Costs</span>
+      <strong id="kpiCosts">—</strong>
+    </div>
+    <div class="kpi-card highlight">
+      <span>Net Profit</span>
+      <strong id="kpiProfit">—</strong>
+    </div>
+  </div>
+
+  <!-- Sold Cars Table -->
+  <div class="card mt-4">
+    <h3>Sold Vehicles</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Chassis #</th><th>Vehicle</th><th>Customer</th><th>Phone</th>
+            <th>Purchase</th><th>Sale</th><th>Profit</th>
+          </tr>
+        </thead>
+        <tbody id="soldCarsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SNIPPET 5 – Toast + Loader  (paste once near </body>)
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div id="loader" style="display:none" class="global-loader">
+  <div class="spinner"></div>
+</div>
+
+<!--
+  Toast styles are injected by app.js dynamically.
+  Add this CSS to your stylesheet for proper styling:
+
+  .toast { position:fixed; bottom:24px; right:24px; padding:12px 20px;
+           border-radius:8px; color:#fff; font-size:14px; z-index:9999;
+           animation: slideIn .25s ease; }
+  .toast-success { background:#1b5e20; }
+  .toast-error   { background:#b71c1c; }
+  @keyframes slideIn { from { transform:translateY(40px); opacity:0 }
+                       to   { transform:translateY(0);    opacity:1 } }
+-->

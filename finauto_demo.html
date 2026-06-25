@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinAuto – Dual-Mode Super App</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  * { font-family: 'Inter', sans-serif; }
+
+  .toggle-track {
+    width: 260px; height: 44px;
+    background: #1e293b; border-radius: 22px;
+    position: relative; cursor: pointer;
+    border: 1px solid #334155; flex-shrink: 0;
+  }
+  .toggle-thumb {
+    position: absolute; top: 4px; left: 4px;
+    height: 36px; width: 124px; border-radius: 18px;
+    transition: transform .35s cubic-bezier(.4,0,.2,1), background .35s;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    box-shadow: 0 2px 12px rgba(99,102,241,.5);
+  }
+  .toggle-track.business .toggle-thumb {
+    transform: translateX(128px);
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    box-shadow: 0 2px 12px rgba(245,158,11,.45);
+  }
+  .lbl { position:absolute; top:50%; transform:translateY(-50%); font-size:13px; font-weight:600; transition:color .3s; z-index:2; pointer-events:none; letter-spacing:.02em; }
+  .lbl-l { left:30px; } .lbl-r { right:22px; }
+
+  .stat-card { background:#0f172a; border:1px solid #1e293b; border-radius:16px; transition:transform .2s,box-shadow .2s; }
+  .stat-card:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,.4); }
+  .c-in { border-top:3px solid #22c55e; } .c-ex { border-top:3px solid #ef4444; }
+  .c-su { border-top:3px solid #6366f1; } .c-re { border-top:3px solid #f59e0b; }
+  .c-co { border-top:3px solid #ef4444; } .c-pr { border-top:3px solid #10b981; }
+  .c-iv { border-top:3px solid #3b82f6; }
+
+  .data-table th { background:#0f172a; color:#94a3b8; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+  .data-table tr:hover td { background:#1e293b44; }
+  .data-table td,.data-table th { padding:12px 16px; border-bottom:1px solid #1e293b; }
+
+  .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; letter-spacing:.04em; }
+  .b-av { background:#064e3b; color:#6ee7b7; }
+  .b-so { background:#1e3a5f; color:#93c5fd; }
+  .b-rp { background:#451a03; color:#fbbf24; }
+  .b-inc{ background:#064e3b; color:#6ee7b7; }
+  .b-exp{ background:#450a0a; color:#fca5a5; }
+  .b-bil{ background:#1e1b4b; color:#a5b4fc; }
+
+  .modal-backdrop { background:rgba(0,0,0,.75); backdrop-filter:blur(4px); }
+  .modal-box { background:#0f172a; border:1px solid #334155; border-radius:20px; }
+
+  .form-input { background:#1e293b; border:1px solid #334155; color:#f1f5f9; border-radius:10px; padding:10px 14px; width:100%; font-size:14px; transition:border-color .2s; }
+  .form-input:focus { outline:none; border-color:#6366f1; }
+
+  .pos { color:#10b981; } .neg { color:#ef4444; }
+
+  .sidebar { background:#020817; border-right:1px solid #1e293b; }
+  .nav-item { border-radius:10px; transition:background .2s; cursor:pointer; }
+  .nav-item:hover { background:#1e293b; }
+  .nav-item.active { background:#1e293b; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
+  .fade-up { animation:fadeUp .4s ease forwards; }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:#0f172a; }
+  ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
+
+  /* profit formula pill */
+  .formula-pill { background:#0f172a; border:1px solid #1e3a5f; border-radius:12px; font-family:monospace; font-size:11px; color:#94a3b8; padding:10px 14px; line-height:1.8; }
+</style>
+</head>
+<body class="bg-[#020817] text-slate-100 min-h-screen">
+
+<div class="flex min-h-screen">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar hidden md:flex flex-col w-64 p-5 gap-1.5 sticky top-0 h-screen overflow-y-auto">
+    <div class="mb-5 px-2">
+      <div class="text-xl font-bold text-white tracking-tight">Fin<span class="text-indigo-400">Auto</span></div>
+      <div class="text-xs text-slate-500 mt-0.5">Dual-Mode Finance Suite</div>
+    </div>
+    <div class="nav-item active flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200">
+      <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item flex items-center gap-3 px-3 py-2.5 text-sm text-slate-400" onclick="openModal('addTransModal')">
+      <svg class="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Transaction
+    </div>
+    <div class="nav-item flex items-center gap-3 px-3 py-2.5 text-sm text-slate-400" onclick="openModal('addCarModal')">
+      <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2.586-2.586A2 2 0 017 13h4a2 2 0 011.414.586L15 16z"/></svg>
+      Add Car
+    </div>
+    <div class="nav-item flex items-center gap-3 px-3 py-2.5 text-sm text-slate-400" onclick="openModal('repairModal')">
+      <svg class="w-4 h-4 text-yellow-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+      Update Repair Cost
+    </div>
+    <div class="nav-item flex items-center gap-3 px-3 py-2.5 text-sm text-slate-400" onclick="openModal('sellModal')">
+      <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      Mark Car Sold
+    </div>
+
+    <div class="mt-auto px-2 pt-4 border-t border-slate-800">
+      <div class="text-xs text-slate-600 mb-2">Net Profit Formula</div>
+      <div class="formula-pill">
+        Sale Price<br>
+        − (Purchase + Repair)<br>
+        <span class="text-emerald-400 font-semibold">= Net Profit</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="flex-1 overflow-x-hidden">
+    <!-- Header -->
+    <header class="sticky top-0 z-40 border-b border-slate-800 bg-[#020817]/90 backdrop-blur px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 id="dashTitle" class="text-base md:text-lg font-semibold text-white">Personal Finance Dashboard</h1>
+        <p id="dashSub" class="text-xs text-slate-500">Track income, expenses &amp; bills</p>
+      </div>
+      <div id="modeToggle" class="toggle-track" onclick="toggleMode()">
+        <div class="toggle-thumb"></div>
+        <span class="lbl lbl-l" id="lblP" style="color:#c7d2fe">Personal</span>
+        <span class="lbl lbl-r" id="lblB" style="color:#475569">Business</span>
+      </div>
+    </header>
+
+    <div class="px-4 md:px-8 py-6 space-y-8">
+
+      <!-- ══ PERSONAL VIEW ══ -->
+      <div id="personalView" class="fade-up space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="stat-card c-in p-5">
+            <div class="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-1">Total Income</div>
+            <div class="text-3xl font-bold text-white" id="pIncome">—</div>
+            <div class="text-xs text-slate-500 mt-1">All income sources</div>
+          </div>
+          <div class="stat-card c-ex p-5">
+            <div class="text-xs font-semibold text-red-400 uppercase tracking-widest mb-1">Total Expenses</div>
+            <div class="text-3xl font-bold text-white" id="pExpense">—</div>
+            <div class="text-xs text-slate-500 mt-1">Expenses + bills</div>
+          </div>
+          <div class="stat-card c-su p-5">
+            <div class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-1">Net Surplus</div>
+            <div class="text-3xl font-bold" id="pSurplus">—</div>
+            <div class="text-xs text-slate-500 mt-1">Income minus outgoings</div>
+          </div>
+        </div>
+
+        <div class="stat-card overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+            <div class="font-semibold text-sm">Transactions</div>
+            <button onclick="openModal('addTransModal')" class="text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-medium transition">+ Add</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm">
+              <thead><tr>
+                <th class="text-left">Date</th>
+                <th class="text-left">Description</th>
+                <th class="text-left">Category</th>
+                <th class="text-right">Amount (PKR)</th>
+              </tr></thead>
+              <tbody id="txBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ BUSINESS VIEW ══ -->
+      <div id="businessView" class="hidden fade-up space-y-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="stat-card c-re p-5">
+            <div class="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">Revenue</div>
+            <div class="text-2xl font-bold text-white" id="bRevenue">—</div>
+            <div class="text-xs text-slate-500 mt-1">From sold cars</div>
+          </div>
+          <div class="stat-card c-co p-5">
+            <div class="text-xs font-semibold text-red-400 uppercase tracking-widest mb-1">Total Costs</div>
+            <div class="text-2xl font-bold text-white" id="bCost">—</div>
+            <div class="text-xs text-slate-500 mt-1">Purchase + repair</div>
+          </div>
+          <div class="stat-card c-pr p-5">
+            <div class="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-1">Net Profit</div>
+            <div class="text-2xl font-bold" id="bProfit">—</div>
+            <div class="text-xs text-slate-500 mt-1" id="bMargin">—% margin</div>
+          </div>
+          <div class="stat-card c-iv p-5">
+            <div class="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-1">Inventory</div>
+            <div class="text-2xl font-bold text-white" id="bTotal">—</div>
+            <div class="text-xs text-slate-500 mt-1" id="bBreak">—</div>
+          </div>
+        </div>
+
+        <div class="stat-card overflow-hidden">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-4 border-b border-slate-800">
+            <div class="font-semibold text-sm">Car Inventory</div>
+            <div class="flex gap-2 flex-wrap">
+              <select id="statusFilter" onchange="renderCars()" class="form-input text-xs py-1.5 w-auto" style="background:#1e293b">
+                <option value="">All Status</option>
+                <option>Available</option><option>Sold</option><option>In Repair</option>
+              </select>
+              <button onclick="openModal('addCarModal')" class="text-xs bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded-lg font-medium transition">+ Add Car</button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm">
+              <thead><tr>
+                <th class="text-left">Car Model</th>
+                <th class="text-left">Chassis #</th>
+                <th class="text-left">Status</th>
+                <th class="text-right">Purchase</th>
+                <th class="text-right">Repair</th>
+                <th class="text-right">Sale Price</th>
+                <th class="text-right">Net Profit</th>
+              </tr></thead>
+              <tbody id="carBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════ MODALS ═══════════ -->
+
+<!-- Add Transaction -->
+<div id="addTransModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+  <div class="modal-box w-full max-w-md p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-white">Add Personal Transaction</h3>
+      <button onclick="closeModal('addTransModal')" class="text-slate-500 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="text-xs text-slate-400 block mb-1">Description</label>
+        <input id="txDesc" class="form-input" placeholder="e.g. Monthly Salary"/></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-400 block mb-1">Category</label>
+          <select id="txCat" class="form-input" style="background:#1e293b">
+            <option>Income</option><option>Expense</option><option>Bill</option>
+          </select></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Amount (PKR)</label>
+          <input id="txAmt" type="number" class="form-input" placeholder="0"/></div>
+      </div>
+      <div><label class="text-xs text-slate-400 block mb-1">Date</label>
+        <input id="txDate" type="date" class="form-input"/></div>
+    </div>
+    <button onclick="addTransaction()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-semibold text-sm transition">Save Transaction</button>
+  </div>
+</div>
+
+<!-- Add Car -->
+<div id="addCarModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+  <div class="modal-box w-full max-w-md p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-white">Add Car to Inventory</h3>
+      <button onclick="closeModal('addCarModal')" class="text-slate-500 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-400 block mb-1">Car Model</label>
+          <input id="cModel" class="form-input" placeholder="Toyota Corolla 2022"/></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Chassis Number</label>
+          <input id="cChassis" class="form-input" placeholder="TC2022-999"/></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-400 block mb-1">Purchase Cost</label>
+          <input id="cPurchase" type="number" class="form-input" placeholder="0"/></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Repair Cost</label>
+          <input id="cRepair" type="number" class="form-input" placeholder="0"/></div>
+      </div>
+      <div><label class="text-xs text-slate-400 block mb-1">Status</label>
+        <select id="cStatus" class="form-input" style="background:#1e293b">
+          <option>Available</option><option>In Repair</option>
+        </select></div>
+      <div class="bg-slate-900 rounded-xl p-3 text-xs text-slate-400 border border-slate-800">
+        💡 Repair cost is stored per chassis. Update it anytime via "Update Repair Cost". Profit recalculates automatically when the car is sold.
+      </div>
+    </div>
+    <button onclick="addCar()" class="w-full bg-amber-600 hover:bg-amber-500 py-2.5 rounded-xl font-semibold text-sm transition">Add to Inventory</button>
+  </div>
+</div>
+
+<!-- Repair -->
+<div id="repairModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+  <div class="modal-box w-full max-w-md p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-white">Update Repair Cost</h3>
+      <button onclick="closeModal('repairModal')" class="text-slate-500 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="text-xs text-slate-400 block mb-1">Chassis Number</label>
+        <input id="rChassis" class="form-input" placeholder="TC2022-001"/></div>
+      <div><label class="text-xs text-slate-400 block mb-1">New Total Repair Cost (PKR)</label>
+        <input id="rCost" type="number" class="form-input" placeholder="0"/></div>
+      <div class="bg-slate-900 rounded-xl p-3 text-xs text-slate-400 border border-slate-800">
+        ⚙️ Net Profit = Sale Price − (Purchase Cost + <strong class="text-yellow-400">Repair Cost</strong>)<br/>
+        Updating this re-calculates profit immediately for the matched chassis.
+      </div>
+    </div>
+    <button onclick="updateRepair()" class="w-full bg-yellow-600 hover:bg-yellow-500 py-2.5 rounded-xl font-semibold text-sm transition">Update Repair Cost</button>
+  </div>
+</div>
+
+<!-- Sell -->
+<div id="sellModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+  <div class="modal-box w-full max-w-md p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold text-white">Mark Car as Sold</h3>
+      <button onclick="closeModal('sellModal')" class="text-slate-500 hover:text-white">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="text-xs text-slate-400 block mb-1">Chassis Number</label>
+        <input id="sChassis" class="form-input" placeholder="HC2021-044"/></div>
+      <div><label class="text-xs text-slate-400 block mb-1">Sale Price (PKR)</label>
+        <input id="sPrice" type="number" class="form-input" placeholder="0"/></div>
+      <div class="bg-slate-900 rounded-xl p-3 text-xs text-slate-400 border border-slate-800">
+        ✅ Sale price counts as Business Income. Status → Sold. Profit auto-calculates.
+      </div>
+    </div>
+    <button onclick="markSold()" class="w-full bg-blue-600 hover:bg-blue-500 py-2.5 rounded-xl font-semibold text-sm transition">Confirm Sale</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50 text-white text-sm px-5 py-3 rounded-xl shadow-xl font-medium"></div>
+
+<script>
+// ════════════════════════════════════
+// STATE
+// ════════════════════════════════════
+let mode = 'personal';
+let _txId = 0, _cId = 0;
+const nextTxId = () => ++_txId;
+const nextCId  = () => ++_cId;
+
+let transactions = [
+  {id:nextTxId(),cat:'Income', desc:'Monthly Salary',    amount:150000, date:'2025-06-01'},
+  {id:nextTxId(),cat:'Bill',   desc:'Electricity Bill',  amount:8500,   date:'2025-06-02'},
+  {id:nextTxId(),cat:'Expense',desc:'House Rent',        amount:35000,  date:'2025-06-03'},
+  {id:nextTxId(),cat:'Expense',desc:'Groceries',         amount:12000,  date:'2025-06-10'},
+  {id:nextTxId(),cat:'Income', desc:'Freelance Project', amount:25000,  date:'2025-06-15'},
+];
+
+let cars = [
+  {id:nextCId(),model:'Toyota Corolla 2022', chassis:'TC2022-001',status:'Sold',    purchase:2800000,repair:85000, sale:3200000,added:'2025-05-10',sold:'2025-06-05'},
+  {id:nextCId(),model:'Honda Civic 2021',    chassis:'HC2021-044',status:'Available',purchase:2500000,repair:45000, sale:0,      added:'2025-05-20',sold:null},
+  {id:nextCId(),model:'Suzuki Cultus 2023',  chassis:'SC2023-112',status:'Sold',    purchase:1800000,repair:20000, sale:2100000,added:'2025-04-15',sold:'2025-05-28'},
+  {id:nextCId(),model:'Toyota Hilux 2020',   chassis:'TH2020-009',status:'In Repair',purchase:4200000,repair:310000,sale:0,     added:'2025-06-01',sold:null},
+  {id:nextCId(),model:'KIA Sportage 2022',   chassis:'KS2022-088',status:'Sold',    purchase:3600000,repair:55000, sale:4100000,added:'2025-04-01',sold:'2025-06-10'},
+];
+
+// ════════════════════════════════════
+// CALCULATIONS
+// ════════════════════════════════════
+const netProfit = c => c.status === 'Sold' ? c.sale - (c.purchase + c.repair) : null;
+
+function personalSummary() {
+  const income   = transactions.filter(t=>t.cat==='Income').reduce((s,t)=>s+t.amount,0);
+  const expenses = transactions.filter(t=>t.cat!=='Income').reduce((s,t)=>s+t.amount,0);
+  return { income, expenses, surplus: income - expenses };
+}
+
+function businessSummary() {
+  const sold     = cars.filter(c=>c.status==='Sold');
+  const revenue  = sold.reduce((s,c)=>s+c.sale,0);
+  const cost     = sold.reduce((s,c)=>s+c.purchase+c.repair,0);
+  const profit   = revenue - cost;
+  return {
+    revenue, cost, profit,
+    margin:    revenue ? ((profit/revenue)*100).toFixed(1) : 0,
+    total:     cars.length,
+    available: cars.filter(c=>c.status==='Available').length,
+    soldCount: sold.length,
+    inRepair:  cars.filter(c=>c.status==='In Repair').length,
+  };
+}
+
+// ════════════════════════════════════
+// FORMAT
+// ════════════════════════════════════
+const fmt = n => {
+  if (n==null) return '—';
+  const abs = Math.abs(n);
+  let s = abs>=1e7 ? (n/1e7).toFixed(2)+' Cr' : abs>=1e5 ? (n/1e5).toFixed(2)+' L' : Math.round(n).toLocaleString('en-PK');
+  return '₨ '+s;
+};
+const fmtProfit = n => {
+  if (n==null) return '<span class="text-slate-500">—</span>';
+  const cls = n>=0?'pos':'neg';
+  return `<span class="${cls}">${n>=0?'+':''}${fmt(n)}</span>`;
+};
+
+// ════════════════════════════════════
+// RENDER
+// ════════════════════════════════════
+function renderPersonal() {
+  const s = personalSummary();
+  document.getElementById('pIncome').textContent  = fmt(s.income);
+  document.getElementById('pExpense').textContent = fmt(s.expenses);
+  const el = document.getElementById('pSurplus');
+  el.textContent  = fmt(s.surplus);
+  el.className = `text-3xl font-bold ${s.surplus>=0?'pos':'neg'}`;
+
+  const rows = [...transactions].reverse().map(t => {
+    const bc = t.cat==='Income'?'b-inc':t.cat==='Bill'?'b-bil':'b-exp';
+    const ac = t.cat==='Income'?'pos':'neg';
+    const sg = t.cat==='Income'?'+':'−';
+    return `<tr>
+      <td class="text-slate-400 text-xs">${t.date}</td>
+      <td class="text-slate-200">${t.desc}</td>
+      <td><span class="badge ${bc}">${t.cat}</span></td>
+      <td class="text-right font-mono font-semibold ${ac}">${sg} ${fmt(t.amount)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('txBody').innerHTML = rows || '<tr><td colspan="4" class="text-center text-slate-500 py-8">No transactions yet.</td></tr>';
+}
+
+function renderCars() {
+  const s = businessSummary();
+  document.getElementById('bRevenue').textContent = fmt(s.revenue);
+  document.getElementById('bCost').textContent    = fmt(s.cost);
+  document.getElementById('bProfit').innerHTML    = fmtProfit(s.profit);
+  document.getElementById('bMargin').textContent  = s.margin+'% margin';
+  document.getElementById('bTotal').textContent   = s.total+' cars';
+  document.getElementById('bBreak').textContent   = `${s.available} avail · ${s.soldCount} sold · ${s.inRepair} repair`;
+
+  const filter = document.getElementById('statusFilter').value;
+  const list   = filter ? cars.filter(c=>c.status===filter) : cars;
+
+  const rows = list.map(c => {
+    const bc  = c.status==='Available'?'b-av':c.status==='Sold'?'b-so':'b-rp';
+    const np  = netProfit(c);
+    const mg  = np!=null&&c.sale>0 ? ((np/c.sale)*100).toFixed(1)+'%' : '—';
+    return `<tr>
+      <td class="font-medium text-slate-100">${c.model}</td>
+      <td class="font-mono text-xs text-slate-400">${c.chassis}</td>
+      <td><span class="badge ${bc}">${c.status}</span></td>
+      <td class="text-right text-slate-300 text-xs font-mono">${fmt(c.purchase)}</td>
+      <td class="text-right text-yellow-400 text-xs font-mono">${fmt(c.repair)}</td>
+      <td class="text-right text-slate-300 text-xs font-mono">${c.sale?fmt(c.sale):'—'}</td>
+      <td class="text-right font-mono font-semibold">${fmtProfit(np)} <span class="text-slate-500 text-xs">${mg}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('carBody').innerHTML = rows || '<tr><td colspan="7" class="text-center text-slate-500 py-8">No cars found.</td></tr>';
+}
+
+function renderAll() { renderPersonal(); renderCars(); }
+
+// ════════════════════════════════════
+// TOGGLE
+// ════════════════════════════════════
+function toggleMode() {
+  mode = mode==='personal'?'business':'personal';
+  const isB = mode==='business';
+  document.getElementById('modeToggle').classList.toggle('business',isB);
+  document.getElementById('lblP').style.color = isB?'#475569':'#c7d2fe';
+  document.getElementById('lblB').style.color = isB?'#fef3c7':'#475569';
+  document.getElementById('personalView').classList.toggle('hidden',isB);
+  document.getElementById('businessView').classList.toggle('hidden',!isB);
+  document.getElementById('dashTitle').textContent = isB?'Car Dealership Dashboard':'Personal Finance Dashboard';
+  document.getElementById('dashSub').textContent   = isB?'Inventory, sales & profit analysis':'Track income, expenses & bills';
+  renderAll();
+}
+
+// ════════════════════════════════════
+// MODALS
+// ════════════════════════════════════
+const openModal  = id => document.getElementById(id).classList.remove('hidden');
+const closeModal = id => document.getElementById(id).classList.add('hidden');
+
+function toast(msg,err=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className=`fixed bottom-6 right-6 z-50 text-white text-sm px-5 py-3 rounded-xl shadow-xl font-medium ${err?'bg-red-600':'bg-emerald-600'}`;
+  el.classList.remove('hidden');
+  setTimeout(()=>el.classList.add('hidden'),3000);
+}
+
+// ════════════════════════════════════
+// FORM HANDLERS
+// ════════════════════════════════════
+function addTransaction() {
+  const desc = document.getElementById('txDesc').value.trim();
+  const cat  = document.getElementById('txCat').value;
+  const amt  = parseFloat(document.getElementById('txAmt').value);
+  const date = document.getElementById('txDate').value;
+  if (!desc||!amt) { toast('Description and amount required.',true); return; }
+  transactions.push({id:nextTxId(),cat,desc,amount:amt,date:date||today()});
+  closeModal('addTransModal');
+  toast('Transaction saved ✓');
+  renderAll();
+}
+
+function addCar() {
+  const model    = document.getElementById('cModel').value.trim();
+  const chassis  = document.getElementById('cChassis').value.trim();
+  const purchase = parseFloat(document.getElementById('cPurchase').value)||0;
+  const repair   = parseFloat(document.getElementById('cRepair').value)||0;
+  const status   = document.getElementById('cStatus').value;
+  if (!model||!chassis||!purchase) { toast('Model, chassis & purchase cost required.',true); return; }
+  if (cars.find(c=>c.chassis===chassis)) { toast('Chassis number already exists.',true); return; }
+  cars.push({id:nextCId(),model,chassis,status,purchase,repair,sale:0,added:today(),sold:null});
+  closeModal('addCarModal');
+  toast('Car added to inventory ✓');
+  renderAll();
+}
+
+function updateRepair() {
+  const chassis = document.getElementById('rChassis').value.trim();
+  const cost    = parseFloat(document.getElementById('rCost').value)||0;
+  if (!chassis) { toast('Chassis number required.',true); return; }
+  const car = cars.find(c=>c.chassis===chassis);
+  if (!car) { toast(`Chassis "${chassis}" not found.`,true); return; }
+  car.repair = cost;
+  closeModal('repairModal');
+  toast(`Repair cost updated ✓ — Profit recalculated for ${car.model}`);
+  renderAll();
+}
+
+function markSold() {
+  const chassis = document.getElementById('sChassis').value.trim();
+  const price   = parseFloat(document.getElementById('sPrice').value)||0;
+  if (!chassis||!price) { toast('Chassis and sale price required.',true); return; }
+  const car = cars.find(c=>c.chassis===chassis);
+  if (!car) { toast(`Chassis "${chassis}" not found.`,true); return; }
+  car.status = 'Sold';
+  car.sale   = price;
+  car.sold   = today();
+  const np = netProfit(car);
+  closeModal('sellModal');
+  toast(`Sold! Net Profit: ${np>=0?'+':''}${fmt(np)} ✓`);
+  renderAll();
+}
+
+const today = () => new Date().toISOString().split('T')[0];
+document.getElementById('txDate').value = today();
+
+// ── Init ──
+renderAll();
+</script>
+</body>
+</html>

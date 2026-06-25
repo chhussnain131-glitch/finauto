@@ -1,46 +1,697 @@
-/* Small touches Tailwind's CDN utilities don't cover directly. */
+/* ==================================================
+   RESET
+================================================== */
 
-html {
-  scroll-behavior: smooth;
-}
-
-/* Thin, dark scrollbars for the transactions table and modal sheet */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #232938;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2C3445;
-}
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #232938 transparent;
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
 }
 
-/* Modal overlay: toggled between hidden / flex from app.js */
-#modalOverlay.flex {
-  display: flex;
+body{
+    font-family:Arial, Helvetica, sans-serif;
+    background:#f5f7fb;
+    color:#222;
 }
 
-/* Remove the native up/down spinner on number inputs for a cleaner look */
-input[type='number']::-webkit-outer-spin-button,
-input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type='number'] {
-  -moz-appearance: textfield;
+/* ==================================================
+   LAYOUT
+================================================== */
+
+.app-layout{
+    display:flex;
+    min-height:100vh;
 }
 
-/* Native-feeling date input icon on dark backgrounds */
-input[type='date']::-webkit-calendar-picker-indicator {
-  filter: invert(0.6);
-  cursor: pointer;
+/* ==================================================
+   SIDEBAR
+================================================== */
+
+.sidebar{
+    width:260px;
+    background:#111827;
+    color:#fff;
+    padding:20px;
+    flex-shrink:0;
+}
+
+.sidebar-logo h2{
+    margin-bottom:5px;
+}
+
+.sidebar-logo p{
+    color:#9ca3af;
+    font-size:14px;
+}
+
+.sidebar-nav{
+    margin-top:30px;
+}
+
+.sidebar-nav a{
+    display:block;
+    color:white;
+    text-decoration:none;
+    padding:12px;
+    border-radius:8px;
+    margin-bottom:10px;
+    font-size:14px;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active{
+    background:#1f2937;
+}
+
+/* ==================================================
+   MAIN CONTENT
+================================================== */
+
+.main-content{
+    flex:1;
+    padding:25px;
+    min-width:0; /* prevents overflow past flex parent */
+}
+
+.topbar{
+    margin-bottom:25px;
+}
+
+.topbar h1{
+    margin-bottom:5px;
+}
+
+/* ==================================================
+   KPI GRID
+================================================== */
+
+.kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:15px;
+}
+
+.kpi-card{
+    background:white;
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+.kpi-card span{
+    display:block;
+    margin-bottom:8px;
+    color:#666;
+    font-size:14px;
+}
+
+.kpi-card strong{
+    font-size:24px;
+    color:#111;
+}
+
+.highlight{
+    border-left:5px solid #16a34a;
+}
+
+/* ==================================================
+   SECTIONS
+================================================== */
+
+.section{
+    margin-top:30px;
+}
+
+.section-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+/* ==================================================
+   CARDS
+================================================== */
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,.08);
+    margin-bottom:20px;
+}
+
+.mt-4{
+    margin-top:20px;
+}
+
+/* ==================================================
+   FORMS
+================================================== */
+
+.form-card h3{
+    margin-bottom:20px;
+}
+
+.form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+    margin-bottom:15px;
+}
+
+/* FIX: was missing entirely */
+.form-grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:15px;
+    margin-bottom:15px;
+}
+
+.form-group{
+    margin-bottom:15px;
+}
+
+.form-group label{
+    display:block;
+    margin-bottom:6px;
+    font-size:14px;
+    font-weight:600;
+    color:#374151;
+}
+
+input,
+select,
+textarea{
+    width:100%;
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    outline:none;
+    font-size:14px;
+    color:#111;
+    background:white;
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+    border-color:#2563eb;
+    box-shadow:0 0 0 3px rgba(37,99,235,.1);
+}
+
+/* ==================================================
+   BUTTONS
+================================================== */
+
+.btn{
+    border:none;
+    padding:12px 18px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:14px;
+    transition:background .15s, opacity .15s;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+}
+
+.btn-primary{
+    background:#2563eb;
+    color:white;
+}
+
+.btn-primary:hover{
+    background:#1d4ed8;
+}
+
+.btn-secondary{
+    background:#10b981;
+    color:white;
+}
+
+.btn-secondary:hover{
+    background:#059669;
+}
+
+.btn-danger{
+    background:#ef4444;
+    color:white;
+}
+
+.btn-danger:hover{
+    background:#dc2626;
+}
+
+.btn-success{
+    background:#16a34a;
+    color:white;
+}
+
+.btn-success:hover{
+    background:#15803d;
+}
+
+.btn-outline{
+    background:white;
+    color:#374151;
+    border:1px solid #d1d5db;
+}
+
+.btn-outline:hover{
+    background:#f3f4f6;
+}
+
+/* FIX: small button sizes were missing */
+.btn-sm{
+    padding:7px 12px;
+    font-size:13px;
+    border-radius:6px;
+}
+
+.btn-xs{
+    padding:4px 9px;
+    font-size:12px;
+    border-radius:5px;
+}
+
+.btn-block{
+    width:100%;
+    justify-content:center;
+}
+
+/* ==================================================
+   BADGES  (FIX: was entirely missing)
+================================================== */
+
+.badge{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.badge-available{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.badge-sold{
+    background:#fee2e2;
+    color:#991b1b;
+}
+
+.badge-paid{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.badge-pending{
+    background:#fef9c3;
+    color:#854d0e;
+}
+
+/* ==================================================
+   UTILITY COLORS  (FIX: was missing)
+================================================== */
+
+.text-green{ color:#16a34a; }
+.text-red  { color:#dc2626; }
+
+/* ==================================================
+   EMPTY STATE  (FIX: was missing)
+================================================== */
+
+.empty-state{
+    text-align:center;
+    padding:30px 20px;
+    color:#9ca3af;
+    font-size:14px;
+}
+
+/* ==================================================
+   TABLES
+================================================== */
+
+.table-wrapper{
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    min-width:560px; /* FIX: prevents column crush before scroll kicks in */
+    border-collapse:collapse;
+}
+
+thead{
+    background:#f3f4f6;
+}
+
+th,
+td{
+    padding:12px;
+    text-align:left;
+    border-bottom:1px solid #e5e7eb;
+    font-size:14px;
+    white-space:nowrap;
+}
+
+th{
+    font-weight:600;
+    color:#374151;
+}
+
+tbody tr:hover{
+    background:#f9fafb;
+}
+
+/* ==================================================
+   EXPORT ROW
+================================================== */
+
+.export-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.export-row label{
+    font-size:14px;
+    font-weight:600;
+    color:#374151;
+}
+
+.export-row input[type="month"]{
+    width:auto;
+    padding:8px 12px;
+}
+
+/* ==================================================
+   MODAL  (FIX: .active rule was missing)
+================================================== */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:none;           /* hidden by default */
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+
+/* THIS WAS MISSING – modal would never appear */
+.modal-overlay.active{
+    display:flex;
+}
+
+.modal{
+    width:95%;
+    max-width:550px;
+    background:white;
+    border-radius:14px;
+    padding:24px;
+    box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.modal-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.modal-header h3{
+    font-size:16px;
+}
+
+.modal-close{
+    border:none;
+    background:none;
+    font-size:22px;
+    cursor:pointer;
+    color:#6b7280;
+    line-height:1;
+    padding:4px;
+    border-radius:4px;
+}
+
+.modal-close:hover{
+    background:#f3f4f6;
+    color:#111;
+}
+
+.modal-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:20px;
+}
+
+/* ==================================================
+   INSTALLMENT SIDE PANEL  (FIX: overlay + row styles added)
+================================================== */
+
+.side-panel{
+    position:fixed;
+    top:0;
+    right:-500px;
+    width:450px;
+    max-width:95%;
+    height:100vh;
+    background:white;
+    z-index:1200;
+    transition:right .3s ease;
+    overflow-y:auto;
+    padding:20px;
+    box-shadow:-5px 0 20px rgba(0,0,0,.15);
+}
+
+.side-panel.active{
+    right:0;
+}
+
+.panel-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+    padding-bottom:16px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+/* FIX: overlay was display:none with no activation rule */
+.side-panel-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;
+    z-index:1100;
+}
+
+.side-panel.active ~ .side-panel-overlay{
+    display:block;
+}
+
+/* KPI mini row inside panel */
+.kpi-mini-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:20px;
+}
+
+/* FIX: spans and strongs inside had no explicit styles */
+.kpi-mini{
+    background:#f3f4f6;
+    padding:10px;
+    border-radius:8px;
+    text-align:center;
+}
+
+.kpi-mini span{
+    display:block;
+    font-size:12px;
+    color:#6b7280;
+    margin-bottom:4px;
+}
+
+.kpi-mini strong{
+    display:block;
+    font-size:15px;
+    font-weight:700;
+    color:#111;
+}
+
+/* Installment row cards */
+.installments-list{
+    margin-bottom:20px;
+}
+
+/* FIX: .installment-row was referenced in JS but never styled */
+.installment-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 14px;
+    border-radius:8px;
+    border:1px solid #e5e7eb;
+    margin-bottom:8px;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.installment-row.paid{
+    border-color:#bbf7d0;
+    background:#f0fdf4;
+}
+
+.installment-row.pending{
+    border-color:#fde68a;
+    background:#fffbeb;
+}
+
+.inst-info{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    flex:1;
+}
+
+.inst-date{
+    font-size:13px;
+    color:#6b7280;
+}
+
+.inst-amount{
+    font-size:14px;
+    font-weight:700;
+    color:#111;
+}
+
+.inst-paid-date{
+    font-size:12px;
+    color:#16a34a;
+}
+
+.inst-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+}
+
+/* Add installment form at bottom of panel */
+.add-inst-form{
+    border-top:1px solid #e5e7eb;
+    padding-top:20px;
+    margin-top:10px;
+}
+
+.add-inst-form h4{
+    margin-bottom:14px;
+    font-size:14px;
+    color:#374151;
+}
+
+/* ==================================================
+   LOADER
+================================================== */
+
+.global-loader{
+    position:fixed;
+    inset:0;
+    background:rgba(255,255,255,.8);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:2000;
+}
+
+.spinner{
+    width:60px;
+    height:60px;
+    border:6px solid #e5e7eb;
+    border-top:6px solid #2563eb;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+    0%  { transform:rotate(0deg);   }
+    100%{ transform:rotate(360deg); }
+}
+
+/* ==================================================
+   TOAST
+================================================== */
+
+.toast{
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    padding:14px 18px;
+    color:white;
+    border-radius:10px;
+    z-index:3000;
+    font-size:14px;
+    max-width:320px;
+    animation:slideIn .25s ease;
+}
+
+.toast-success{ background:#16a34a; }
+.toast-error  { background:#dc2626; }
+
+@keyframes slideIn{
+    from{ opacity:0; transform:translateY(30px); }
+    to  { opacity:1; transform:translateY(0);    }
+}
+
+/* ==================================================
+   RESPONSIVE
+================================================== */
+
+@media(max-width:900px){
+    .sidebar{ width:220px; }
+}
+
+@media(max-width:768px){
+    .app-layout     { flex-direction:column; }
+    .sidebar        { width:100%; }
+    .main-content   { padding:15px; }
+
+    .section-header {
+        flex-direction:column;
+        align-items:flex-start;
+        gap:10px;
+    }
+
+    .modal          { width:95%; }
+    .side-panel     { width:100%; }
+    .kpi-grid       { grid-template-columns:1fr 1fr; }
+    .form-grid-2    { grid-template-columns:1fr; }
+}
+
+@media(max-width:480px){
+    .form-grid      { grid-template-columns:1fr; }
+    .kpi-grid       { grid-template-columns:1fr; }
+
+    .btn{
+        width:100%;
+        justify-content:center;
+    }
+
+    /* Keep small action buttons inside table rows full-width only in stacked view */
+    td .btn-sm,
+    td .btn-xs{
+        width:auto;
+    }
 }

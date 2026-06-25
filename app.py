@@ -1,341 +1,553 @@
 """
-Ledger — Personal Finance Dashboard v3
-Features: CRUD transactions, month filter, monthly comparison chart,
-          bill reminders, Supabase backend.
+FinAuto – Flask + Supabase Backend
 """
 
+import io
 import os
-import calendar
-from collections import defaultdict
-from datetime import date, datetime
+from datetime import datetime
 
-from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
-from supabase import Client, create_client
+from flask import Flask, jsonify, request, send_file, render_template
+from flask_cors import CORS
+from supabase import create_client, Client
 
-load_dotenv()
-
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError(
-        "Missing SUPABASE_URL / SUPABASE_SERVICE_KEY in .env file."
-    )
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-TABLE_TX   = "transactions"
-TABLE_REM  = "reminders"
-VALID_TYPES = ("Income", "Expense")
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle,
+    Paragraph, Spacer, HRFlowable,
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 app = Flask(__name__)
+CORS(app)
 
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://YOUR_PROJECT.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "YOUR_SERVICE_ROLE_OR_ANON_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --------------------------------------------------------------------------
-# Validation helpers
-# --------------------------------------------------------------------------
-def validate_payload(data: dict, partial: bool = False):
-    if not isinstance(data, dict):
-        return None, "Request body must be a JSON object"
-    clean, errors = {}, []
-
-    if "amount" in data or not partial:
-        try:
-            amount = float(data.get("amount"))
-            if amount <= 0:
-                errors.append("amount must be > 0")
-            else:
-                clean["amount"] = round(amount, 2)
-        except (TypeError, ValueError):
-            errors.append("amount must be a valid number")
-
-    if "type" in data or not partial:
-        tx_type = data.get("type")
-        if tx_type not in VALID_TYPES:
-            errors.append(f"type must be one of {VALID_TYPES}")
-        else:
-            clean["type"] = tx_type
-
-    if "category" in data or not partial:
-        category = (data.get("category") or "").strip()
-        if not category:
-            errors.append("category is required")
-        else:
-            clean["category"] = category[:80]
-
-    if data.get("date"):
-        clean["date"] = data["date"]
-
-    if "note" in data:
-        clean["note"] = (data.get("note") or "").strip()[:500]
-
-    return (None, "; ".join(errors)) if errors else (clean, None)
-
-
-def get_date_range():
-    month = request.args.get("month", type=int)
-    year  = request.args.get("year",  type=int)
-    if month and year:
-        last_day = calendar.monthrange(year, month)[1]
-        return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{last_day:02d}"
-    return None, None
-
-
-# --------------------------------------------------------------------------
-# Page
-# --------------------------------------------------------------------------
 @app.route("/")
-def dashboard():
+def index():
     return render_template("index.html")
 
+# =============================================================================
+# CARS – CRUD
+# =============================================================================
 
-# --------------------------------------------------------------------------
-# Transactions CRUD
-# --------------------------------------------------------------------------
-@app.route("/api/transactions", methods=["GET"])
-def list_transactions():
-    start, end = get_date_range()
+@app.route("/api/cars", methods=["GET"])
+def get_cars():
+    data = supabase.table("cars").select("*").order("created_at", desc=True).execute()
+    return jsonify(data.data), 200
+
+
+@app.route("/api/cars", methods=["POST"])
+def add_car():
+    body = request.get_json() or {}
+    required = ["chassis_number", "make", "model"]
+    missing = [f for f in required if not body.get(f)]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+    body.setdefault("status", "Available")
+    data = supabase.table("cars").insert(body).execute()
+    return jsonify(data.data[0]), 201
+
+
+@app.route("/api/cars/<chassis_number>", methods=["GET"])
+def get_car(chassis_number: str):
+    result = (
+        supabase.table("cars")
+        .select("*")
+        .eq("chassis_number", chassis_number)
+        .single()
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Car not found"}), 404
+    return jsonify(result.data), 200
+
+
+@app.route("/api/cars/<chassis_number>", methods=["PUT"])
+def edit_car(chassis_number: str):
+    body = request.get_json() or {}
+    allowed = {"make", "model", "year", "purchase_price", "purchase_date"}
+    payload = {k: v for k, v in body.items() if k in allowed}
+    if not payload:
+        return jsonify({"error": "No valid fields"}), 400
+    result = (
+        supabase.table("cars")
+        .update(payload)
+        .eq("chassis_number", chassis_number)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Car not found"}), 404
+    return jsonify(result.data[0]), 200
+
+
+@app.route("/api/cars/<chassis_number>", methods=["DELETE"])
+def delete_car(chassis_number: str):
+    result = (
+        supabase.table("cars")
+        .delete()
+        .eq("chassis_number", chassis_number)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Car not found"}), 404
+    return jsonify({"message": "Car deleted"}), 200
+
+
+# =============================================================================
+# FEATURE 1 – Customer Management: mark a car as Sold
+# =============================================================================
+
+@app.route("/api/cars/<chassis_number>/mark_sold", methods=["PATCH"])
+def mark_car_as_sold(chassis_number: str):
+    body = request.get_json() or {}
+
+    required = ["customer_name", "customer_phone"]
+    missing = [f for f in required if not str(body.get(f, "")).strip()]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
+    existing = (
+        supabase.table("cars")
+        .select("chassis_number, status")
+        .eq("chassis_number", chassis_number)
+        .single()
+        .execute()
+    )
+    if not existing.data:
+        return jsonify({"error": "Car not found"}), 404
+    if existing.data.get("status") == "Sold":
+        return jsonify({"error": "Car is already marked as Sold"}), 409
+
+    update_payload = {
+        "status":         "Sold",
+        "customer_name":  body["customer_name"].strip(),
+        "customer_phone": body["customer_phone"].strip(),
+        "sold_at":        datetime.utcnow().isoformat(),
+    }
+
+    if body.get("sale_price") is not None:
+        try:
+            update_payload["sale_price"] = float(body["sale_price"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "sale_price must be a number"}), 400
+
+    if body.get("advance_payment") is not None:
+        try:
+            update_payload["advance_payment"] = float(body["advance_payment"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "advance_payment must be a number"}), 400
+
+    if body.get("advance_date"):
+        update_payload["advance_date"] = body["advance_date"]
+
+    result = (
+        supabase.table("cars")
+        .update(update_payload)
+        .eq("chassis_number", chassis_number)
+        .execute()
+    )
+    return jsonify({"message": "Car marked as Sold", "car": result.data[0]}), 200
+
+
+# =============================================================================
+# FEATURE 2 – PDF Export
+# =============================================================================
+
+BRAND_DARK  = colors.HexColor("#1a237e")
+BRAND_MID   = colors.HexColor("#283593")
+BRAND_LIGHT = colors.HexColor("#e8eaf6")
+
+
+def _build_pdf_buffer(month_str: str) -> io.BytesIO:
+    year, month = map(int, month_str.split("-"))
+    month_start = f"{year}-{month:02d}-01"
+    month_end   = (
+        f"{year + 1}-01-01" if month == 12
+        else f"{year}-{month + 1:02d}-01"
+    )
+
+    sold_result = (
+        supabase.table("cars")
+        .select("chassis_number, make, model, year, sale_price, purchase_price, customer_name, sold_at")
+        .eq("status", "Sold")
+        .gte("sold_at", month_start)
+        .lt("sold_at", month_end)
+        .order("sold_at")
+        .execute()
+    )
+    sold_cars     = sold_result.data or []
+    total_revenue = sum(c.get("sale_price") or 0 for c in sold_cars)
+    total_costs   = sum(c.get("purchase_price") or 0 for c in sold_cars)
+    net_profit    = total_revenue - total_costs
+
+    buffer = io.BytesIO()
+    doc    = SimpleDocTemplate(buffer, pagesize=A4,
+                leftMargin=2*cm, rightMargin=2*cm,
+                topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle("BrandTitle", parent=styles["Title"],
+                                  fontSize=20, textColor=BRAND_DARK, spaceAfter=4)
+    sub_style   = ParagraphStyle("BrandSub", parent=styles["Normal"],
+                                  fontSize=10, textColor=colors.grey, spaceAfter=12)
+    h2_style    = ParagraphStyle("BrandH2", parent=styles["Heading2"],
+                                  fontSize=12, textColor=BRAND_DARK, spaceBefore=14, spaceAfter=6)
+    footer_style = ParagraphStyle("Footer", parent=styles["Normal"],
+                                   fontSize=8, textColor=colors.grey, alignment=TA_RIGHT)
+
+    elements    = []
+    month_label = datetime(year, month, 1).strftime("%B %Y")
+    elements.append(Paragraph("FinAuto", title_style))
+    elements.append(Paragraph(f"Business Summary — {month_label}", sub_style))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=BRAND_DARK, spaceAfter=10))
+
+    kpi_data  = [
+        ["Metric", "Amount (PKR)"],
+        ["Cars Sold", str(len(sold_cars))],
+        ["Total Revenue", f"PKR {total_revenue:>15,.0f}"],
+        ["Total Purchase Costs", f"PKR {total_costs:>15,.0f}"],
+        ["Net Profit", f"PKR {net_profit:>15,.0f}"],
+    ]
+    kpi_table = Table(kpi_data, colWidths=[10*cm, 6*cm])
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND",     (0, 0), (-1, 0),  BRAND_DARK),
+        ("TEXTCOLOR",      (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",       (0, 0), (-1, -1), 10),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, BRAND_LIGHT]),
+        ("ALIGN",          (1, 0), (1, -1),  "RIGHT"),
+        ("FONTNAME",       (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR",      (0, -1), (-1, -1),
+         colors.HexColor("#1b5e20") if net_profit >= 0 else colors.red),
+        ("GRID",           (0, 0), (-1, -1), 0.5, colors.grey),
+        ("TOPPADDING",     (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), 6),
+        ("LEFTPADDING",    (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(kpi_table)
+
+    if sold_cars:
+        elements.append(Paragraph("Sold Vehicles Detail", h2_style))
+        headers = ["#", "Chassis", "Make / Model", "Customer",
+                   "Purchase (PKR)", "Sale (PKR)", "Profit (PKR)"]
+        rows = [headers]
+        for idx, c in enumerate(sold_cars, 1):
+            profit     = (c.get("sale_price") or 0) - (c.get("purchase_price") or 0)
+            make_model = f"{c.get('make','')} {c.get('model','')} {c.get('year') or ''}".strip()
+            rows.append([str(idx), c.get("chassis_number","—"), make_model,
+                         c.get("customer_name","—"),
+                         f"{c.get('purchase_price') or 0:,.0f}",
+                         f"{c.get('sale_price') or 0:,.0f}",
+                         f"{profit:,.0f}"])
+        detail_table = Table(rows,
+            colWidths=[0.8*cm, 2.8*cm, 3.5*cm, 3*cm, 2.4*cm, 2.4*cm, 2.4*cm],
+            repeatRows=1)
+        detail_table.setStyle(TableStyle([
+            ("BACKGROUND",     (0, 0), (-1, 0),  BRAND_MID),
+            ("TEXTCOLOR",      (0, 0), (-1, 0),  colors.white),
+            ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
+            ("FONTSIZE",       (0, 0), (-1, -1), 8),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, BRAND_LIGHT]),
+            ("ALIGN",          (4, 0), (-1, -1), "RIGHT"),
+            ("ALIGN",          (0, 0), (0, -1),  "CENTER"),
+            ("GRID",           (0, 0), (-1, -1), 0.4, colors.lightgrey),
+            ("TOPPADDING",     (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",    (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(detail_table)
+    else:
+        elements.append(Spacer(1, 0.5*cm))
+        elements.append(Paragraph("No vehicles were sold in this period.", styles["Normal"]))
+
+    elements.append(Spacer(1, 1*cm))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph(
+        f"Generated by FinAuto on {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC  |  Confidential",
+        footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+@app.route("/api/export-pdf/<month>", methods=["GET"])
+def export_pdf(month: str):
     try:
-        q = supabase.table(TABLE_TX).select("*")
-        if start and end:
-            q = q.gte("date", start).lte("date", end)
-        result = q.order("date", desc=True).order("id", desc=True).execute()
-        return jsonify(success=True, data=result.data), 200
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
-
-
-@app.route("/api/transactions", methods=["POST"])
-def create_transaction():
-    payload = request.get_json(silent=True) or {}
-    clean, error = validate_payload(payload)
-    if error:
-        return jsonify(success=False, error=error), 400
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        return jsonify({"error": "Invalid month. Use YYYY-MM format"}), 400
     try:
-        result = supabase.table(TABLE_TX).insert(clean).execute()
-        return jsonify(success=True, data=result.data), 201
+        buffer   = _build_pdf_buffer(month)
+        filename = f"FinAuto_Summary_{month}.pdf"
+        return send_file(buffer, mimetype="application/pdf",
+                         as_attachment=True, download_name=filename)
     except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+        return jsonify({"error": f"PDF generation failed: {str(exc)}"}), 500
 
 
-@app.route("/api/transactions/<int:tid>", methods=["PUT"])
-def update_transaction(tid):
-    payload = request.get_json(silent=True) or {}
-    clean, error = validate_payload(payload, partial=True)
-    if error:
-        return jsonify(success=False, error=error), 400
-    if not clean:
-        return jsonify(success=False, error="No valid fields to update"), 400
+@app.route("/reports/business_summary_pdf", methods=["GET"])
+def business_summary_pdf_legacy():
+    month = request.args.get("month", datetime.utcnow().strftime("%Y-%m"))
+    return export_pdf(month)
+
+
+# =============================================================================
+# FEATURE 3 – Installment CRUD
+# =============================================================================
+
+@app.route("/api/installments/add", methods=["POST"])
+def create_installment():
+    body    = request.get_json() or {}
+    required = ["chassis_number", "installment_amount", "due_date"]
+    missing  = [f for f in required if body.get(f) is None]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
     try:
-        result = supabase.table(TABLE_TX).update(clean).eq("id", tid).execute()
-        if not result.data:
-            return jsonify(success=False, error="Not found"), 404
-        return jsonify(success=True, data=result.data), 200
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+        amount = float(body["installment_amount"])
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({"error": "installment_amount must be a positive number"}), 400
 
-
-@app.route("/api/transactions/<int:tid>", methods=["DELETE"])
-def delete_transaction(tid):
     try:
-        result = supabase.table(TABLE_TX).delete().eq("id", tid).execute()
-        if not result.data:
-            return jsonify(success=False, error="Not found"), 404
-        return jsonify(success=True), 200
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+        datetime.strptime(body["due_date"], "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "due_date must be YYYY-MM-DD"}), 400
+
+    status = body.get("payment_status", "Pending")
+    if status not in ("Pending", "Paid"):
+        return jsonify({"error": "payment_status must be 'Pending' or 'Paid'"}), 400
+
+    payload = {
+        "chassis_number":     body["chassis_number"],
+        "installment_amount": amount,
+        "due_date":           body["due_date"],
+        "payment_status":     status,
+        "created_at":         datetime.utcnow().isoformat(),
+    }
+    result = supabase.table("installments").insert(payload).execute()
+    return jsonify(result.data[0]), 201
 
 
-# --------------------------------------------------------------------------
-# Summary
-# --------------------------------------------------------------------------
-@app.route("/api/summary", methods=["GET"])
-def summary():
-    start, end = get_date_range()
-    try:
-        q = supabase.table(TABLE_TX).select("amount, type, category")
-        if start and end:
-            q = q.gte("date", start).lte("date", end)
-        rows = q.execute().data or []
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+@app.route("/api/installments/<chassis_number>", methods=["GET"])
+def get_installments(chassis_number: str):
+    result = (
+        supabase.table("installments")
+        .select("*")
+        .eq("chassis_number", chassis_number)
+        .order("due_date")
+        .execute()
+    )
+    return jsonify(result.data), 200
 
-    total_income = total_expense = 0.0
-    cat_totals = defaultdict(float)
-    for row in rows:
-        amt = float(row.get("amount") or 0)
-        t   = row.get("type")
-        cat = row.get("category") or "Uncategorized"
-        if t == "Income":
-            total_income += amt
-        elif t == "Expense":
-            total_expense += amt
-            cat_totals[cat] += amt
 
-    return jsonify(success=True, data={
-        "total_income":       round(total_income, 2),
-        "total_expense":      round(total_expense, 2),
-        "surplus":            round(total_income - total_expense, 2),
-        "category_breakdown": {k: round(v, 2) for k, v in cat_totals.items()},
-        "transaction_count":  len(rows),
+@app.route("/api/installments/<int:installment_id>", methods=["PATCH"])
+def update_installment(installment_id: int):
+    body    = request.get_json() or {}
+    allowed = {"payment_status", "installment_amount", "due_date"}
+    payload = {k: v for k, v in body.items() if k in allowed}
+    if not payload:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    if "payment_status" in payload:
+        if payload["payment_status"] not in ("Pending", "Paid"):
+            return jsonify({"error": "payment_status must be 'Pending' or 'Paid'"}), 400
+        if payload["payment_status"] == "Paid":
+            payload["paid_at"] = datetime.utcnow().isoformat()
+        else:
+            payload["paid_at"] = None
+
+    result = (
+        supabase.table("installments")
+        .update(payload)
+        .eq("id", installment_id)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Installment not found"}), 404
+    return jsonify(result.data[0]), 200
+
+
+@app.route("/api/installments/<int:installment_id>", methods=["DELETE"])
+def delete_installment(installment_id: int):
+    result = (
+        supabase.table("installments")
+        .delete()
+        .eq("id", installment_id)
+        .execute()
+    )
+    if not result.data:
+        return jsonify({"error": "Installment not found"}), 404
+    return jsonify({"message": "Installment deleted"}), 200
+
+
+@app.route("/api/installments/<chassis_number>/summary", methods=["GET"])
+def installment_summary(chassis_number: str):
+    car_result = (
+        supabase.table("cars")
+        .select("sale_price, advance_payment")
+        .eq("chassis_number", chassis_number)
+        .single()
+        .execute()
+    )
+    car_data    = car_result.data or {}
+    sale_price  = car_data.get("sale_price") or 0
+    advance     = car_data.get("advance_payment") or 0
+
+    result = (
+        supabase.table("installments")
+        .select("installment_amount, payment_status")
+        .eq("chassis_number", chassis_number)
+        .execute()
+    )
+    rows            = result.data or []
+    total_paid_inst = sum(r["installment_amount"] for r in rows if r["payment_status"] == "Paid")
+    total_paid_all  = advance + total_paid_inst
+    balance         = max(0, sale_price - total_paid_all)
+
+    return jsonify({
+        "chassis_number":     chassis_number,
+        "total_installments": len(rows),
+        "total_owed":         sale_price,
+        "advance":            advance,
+        "total_paid":         total_paid_inst,
+        "total_paid_all":     total_paid_all,
+        "balance_remaining":  balance,
     }), 200
 
 
-# --------------------------------------------------------------------------
-# Available months dropdown
-# --------------------------------------------------------------------------
-@app.route("/api/months", methods=["GET"])
-def available_months():
-    try:
-        rows = supabase.table(TABLE_TX).select("date").execute().data or []
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
-    seen = {r["date"][:7] for r in rows if r.get("date") and len(r["date"]) >= 7}
-    return jsonify(success=True, data=sorted(seen, reverse=True)), 200
+# =============================================================================
+# PARTIAL PAYMENTS – CRUD
+# =============================================================================
+
+@app.route("/api/installments/<int:installment_id>/payments", methods=["GET"])
+def get_payments(installment_id: int):
+    result = (
+        supabase.table("payments")
+        .select("*")
+        .eq("installment_id", installment_id)
+        .order("payment_date")
+        .execute()
+    )
+    return jsonify(result.data), 200
 
 
-# --------------------------------------------------------------------------
-# Monthly comparison (last 6 months bar chart)
-# --------------------------------------------------------------------------
-@app.route("/api/monthly-comparison", methods=["GET"])
-def monthly_comparison():
-    """
-    Returns income & expense totals for the last 6 months so the
-    frontend can draw a grouped bar chart.
-    """
-    today = date.today()
-    months = []
-    for i in range(5, -1, -1):   # 5 months ago → this month
-        m = (today.month - i - 1) % 12 + 1
-        y = today.year - ((today.month - i - 1) // 12 + (1 if today.month - i <= 0 else 0))
-        # simpler calculation
-        import datetime as dt
-        target = dt.date(today.year, today.month, 1)
-        # subtract i months properly
-        month_num = today.month - i
-        year_num  = today.year
-        while month_num <= 0:
-            month_num += 12
-            year_num  -= 1
-        months.append((year_num, month_num))
-
-    labels, incomes, expenses = [], [], []
-
-    for yr, mo in months:
-        last_day = calendar.monthrange(yr, mo)[1]
-        start = f"{yr:04d}-{mo:02d}-01"
-        end   = f"{yr:04d}-{mo:02d}-{last_day:02d}"
-        try:
-            rows = (supabase.table(TABLE_TX)
-                    .select("amount, type")
-                    .gte("date", start)
-                    .lte("date", end)
-                    .execute().data or [])
-        except Exception:
-            rows = []
-
-        inc = sum(float(r["amount"]) for r in rows if r.get("type") == "Income")
-        exp = sum(float(r["amount"]) for r in rows if r.get("type") == "Expense")
-
-        month_names = ["Jan","Feb","Mar","Apr","May","Jun",
-                       "Jul","Aug","Sep","Oct","Nov","Dec"]
-        labels.append(f"{month_names[mo-1]} {yr}")
-        incomes.append(round(inc, 2))
-        expenses.append(round(exp, 2))
-
-    return jsonify(success=True, data={
-        "labels":   labels,
-        "incomes":  incomes,
-        "expenses": expenses,
-    }), 200
-
-
-# --------------------------------------------------------------------------
-# Bill Reminders CRUD
-# --------------------------------------------------------------------------
-@app.route("/api/reminders", methods=["GET"])
-def list_reminders():
-    try:
-        rows = (supabase.table(TABLE_REM)
-                .select("*")
-                .eq("is_active", True)
-                .order("due_day")
-                .execute().data or [])
-
-        # Enrich each reminder with paid/unpaid status for current month
-        today     = date.today()
-        yr, mo    = today.year, today.month
-        last_day  = calendar.monthrange(yr, mo)[1]
-        start     = f"{yr:04d}-{mo:02d}-01"
-        end       = f"{yr:04d}-{mo:02d}-{last_day:02d}"
-
-        paid_cats = set()
-        try:
-            tx_rows = (supabase.table(TABLE_TX)
-                       .select("category, type")
-                       .gte("date", start)
-                       .lte("date", end)
-                       .eq("type", "Expense")
-                       .execute().data or [])
-            paid_cats = {r["category"].lower() for r in tx_rows}
-        except Exception:
-            pass
-
-        for r in rows:
-            due_day = r.get("due_day", 1)
-            r["due_date_this_month"] = f"{yr:04d}-{mo:02d}-{min(due_day, last_day):02d}"
-            r["paid_this_month"]     = r["category"].lower() in paid_cats
-            r["overdue"] = (not r["paid_this_month"]) and (today.day > due_day)
-
-        return jsonify(success=True, data=rows), 200
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
-
-
-@app.route("/api/reminders", methods=["POST"])
-def create_reminder():
-    data = request.get_json(silent=True) or {}
-    name     = (data.get("name") or "").strip()
-    category = (data.get("category") or "").strip()
-    due_day  = data.get("due_day")
-    amount   = data.get("amount")
-
-    errors = []
-    if not name:     errors.append("name is required")
-    if not category: errors.append("category is required")
-    try:
-        due_day = int(due_day)
-        if not (1 <= due_day <= 31): raise ValueError
-    except (TypeError, ValueError):
-        errors.append("due_day must be 1–31")
-    if errors:
-        return jsonify(success=False, error="; ".join(errors)), 400
-
-    payload = {"name": name[:100], "category": category[:80],
-               "due_day": due_day, "is_active": True}
-    if amount:
-        try: payload["amount"] = round(float(amount), 2)
-        except (TypeError, ValueError): pass
+@app.route("/api/installments/<int:installment_id>/payments", methods=["POST"])
+def add_partial_payment(installment_id: int):
+    body = request.get_json() or {}
 
     try:
-        result = supabase.table(TABLE_REM).insert(payload).execute()
-        return jsonify(success=True, data=result.data), 201
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+        amount_paid = float(body.get("amount_paid", 0))
+        if amount_paid <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({"error": "amount_paid must be a positive number"}), 400
 
+    inst_result = (
+        supabase.table("installments")
+        .select("*")
+        .eq("id", installment_id)
+        .single()
+        .execute()
+    )
+    if not inst_result.data:
+        return jsonify({"error": "Installment not found"}), 404
 
-@app.route("/api/reminders/<int:rid>", methods=["DELETE"])
-def delete_reminder(rid):
+    inst_amount  = float(inst_result.data["installment_amount"])
+    payment_date = body.get("payment_date") or datetime.utcnow().strftime("%Y-%m-%d")
+
     try:
-        supabase.table(TABLE_REM).update({"is_active": False}).eq("id", rid).execute()
-        return jsonify(success=True), 200
-    except Exception as exc:
-        return jsonify(success=False, error=str(exc)), 500
+        datetime.strptime(payment_date, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "payment_date must be YYYY-MM-DD"}), 400
+
+    prev_payments = (
+        supabase.table("payments")
+        .select("amount_paid")
+        .eq("installment_id", installment_id)
+        .execute()
+    )
+    already_paid = sum(float(p["amount_paid"]) for p in (prev_payments.data or []))
+    remaining    = inst_amount - already_paid
+
+    if amount_paid > remaining:
+        return jsonify({"error": f"Amount exceeds remaining. Max allowed: {remaining:,.0f}"}), 400
+
+    supabase.table("payments").insert({
+        "installment_id": installment_id,
+        "amount_paid":    amount_paid,
+        "payment_date":   payment_date,
+        "notes":          body.get("notes", ""),
+    }).execute()
+
+    new_total  = already_paid + amount_paid
+    new_status = "Paid" if new_total >= inst_amount else "Pending"
+    update_pl  = {"payment_status": new_status}
+    if new_status == "Paid":
+        update_pl["paid_at"] = datetime.utcnow().isoformat()
+
+    supabase.table("installments").update(update_pl).eq("id", installment_id).execute()
+
+    return jsonify({
+        "message":     "Payment added",
+        "amount_paid": amount_paid,
+        "total_paid":  new_total,
+        "remaining":   max(0, inst_amount - new_total),
+        "status":      new_status,
+    }), 201
 
 
-# --------------------------------------------------------------------------
+@app.route("/api/payments/<int:payment_id>", methods=["DELETE"])
+def delete_payment(payment_id: int):
+    pay_result = (
+        supabase.table("payments")
+        .select("*")
+        .eq("id", payment_id)
+        .single()
+        .execute()
+    )
+    if not pay_result.data:
+        return jsonify({"error": "Payment not found"}), 404
+
+    installment_id = pay_result.data["installment_id"]
+    supabase.table("payments").delete().eq("id", payment_id).execute()
+
+    remaining_payments = (
+        supabase.table("payments")
+        .select("amount_paid")
+        .eq("installment_id", installment_id)
+        .execute()
+    )
+    inst_result = (
+        supabase.table("installments")
+        .select("installment_amount")
+        .eq("id", installment_id)
+        .single()
+        .execute()
+    )
+    inst_amount = float(inst_result.data["installment_amount"])
+    total_paid  = sum(float(p["amount_paid"]) for p in (remaining_payments.data or []))
+    new_status  = "Paid" if total_paid >= inst_amount else "Pending"
+    paid_at     = datetime.utcnow().isoformat() if new_status == "Paid" else None
+
+    supabase.table("installments").update({
+        "payment_status": new_status,
+        "paid_at":        paid_at,
+    }).eq("id", installment_id).execute()
+
+    return jsonify({"message": "Payment deleted", "installment_status": new_status}), 200
+
+
+# =============================================================================
 # Entry point
-# --------------------------------------------------------------------------
+# =============================================================================
 if __name__ == "__main__":
-    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
-    app.run(debug=debug_mode, host="0.0.0.0", port=5000)
+    app.run(debug=True, port=5000)
