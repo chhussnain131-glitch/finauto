@@ -317,6 +317,10 @@ textarea:focus{
     background:#fef9c3;
     color:#854d0e;
 }
+.badge-overdue{
+    background:#fee2e2;
+    color:#991b1b;
+}
 
 /* ==================================================
    UTILITY COLORS  (FIX: was missing)
@@ -558,6 +562,10 @@ tbody tr:hover{
     border-color:#fde68a;
     background:#fffbeb;
 }
+.installment-row.overdue{
+    border-color:#fca5a5;
+    background:#fef2f2;
+}
 
 .inst-info{
     display:flex;
@@ -665,8 +673,33 @@ tbody tr:hover{
 
 @media(max-width:768px){
     .app-layout     { flex-direction:column; }
-    .sidebar        { width:100%; }
+    .sidebar        {
+        position: fixed;
+        top: 0;
+        left: -260px;
+        width: 260px;
+        height: 100vh;
+        z-index: 1300;
+        transition: left .3s ease;
+    }
+    .sidebar.open   { left: 0; }
+    .hamburger-btn{
+    display:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:8px;
+    flex-direction:column;
+    gap:5px;
+}
+.hamburger-btn span{
+    width:24px;
+    height:2px;
+    background:#111827;
+}
     .main-content   { padding:15px; }
+    ...
+}
 
     .section-header {
         flex-direction:column;

@@ -323,7 +323,7 @@ def create_installment():
         return jsonify({"error": "due_date must be YYYY-MM-DD"}), 400
 
     status = body.get("payment_status", "Pending")
-    if status not in ("Pending", "Paid"):
+    if status not in ("Pending", "Paid", "Overdue"):
         return jsonify({"error": "payment_status must be 'Pending' or 'Paid'"}), 400
 
     payload = {
@@ -346,8 +346,21 @@ def get_installments(chassis_number: str):
         .order("due_date")
         .execute()
     )
-    return jsonify(result.data), 200
+    rows  = result.data or []
+    today = datetime.utcnow().date()
+    overdue_ids = []
 
+    for r in rows:
+        if r.get("payment_status") == "Pending" and r.get("due_date"):
+            due = datetime.strptime(r["due_date"], "%Y-%m-%d").date()
+            if due < today:
+                r["payment_status"] = "Overdue"
+                overdue_ids.append(r["id"])
+
+    if overdue_ids:
+        supabase.table("installments").update({"payment_status": "Overdue"}).in_("id", overdue_ids).execute()
+
+    return jsonify(rows), 200
 
 @app.route("/api/installments/<int:installment_id>", methods=["PATCH"])
 def update_installment(installment_id: int):

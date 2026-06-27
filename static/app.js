@@ -8,8 +8,7 @@
  *   5. Business View – KPI summary + sold cars table
  */
 
-const API = "";   // empty = same origin; set to "http://localhost:5000" if running Flask separately
-
+const API = "";
 // ─────────────────────────────────────────────────────────────────────────────
 // Utility helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,13 +250,19 @@ async function loadInstallments(chassisNumber) {
   listEl.innerHTML = installments
     .map(
       (inst) => `
-    <div class="installment-row ${inst.payment_status === "Paid" ? "paid" : "pending"}">
+    <div class="installment-row ${
+  inst.payment_status === "Paid" ? "paid" :
+  inst.payment_status === "Overdue" ? "overdue" : "pending"
+}">
       <div class="inst-info">
         <span class="inst-date">📅 ${inst.due_date}</span>
         <span class="inst-amount">${pkr(inst.installment_amount)}</span>
-        <span class="inst-badge ${inst.payment_status === "Paid" ? "badge-paid" : "badge-pending"}">
-          ${inst.payment_status}
-        </span>
+        <span class="inst-badge ${
+  inst.payment_status === "Paid" ? "badge-paid" :
+  inst.payment_status === "Overdue" ? "badge-overdue" : "badge-pending"
+}">
+  ${inst.payment_status}
+</span>
         ${inst.paid_at ? `<span class="inst-paid-date">Paid: ${inst.paid_at.slice(0,10)}</span>` : ""}
       </div>
       <div class="inst-actions">
